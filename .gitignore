@@ -1,0 +1,57 @@
+--- Dependências do Node (Pesado) ---
+
+node_modules/
+npm-debug.log
+yarn-error.log
+
+--- Pastas de Build (Onde o .exe é criado) ---
+
+dist/
+build/
+release/
+out/
+
+--- Arquivos de Sistema e Editores ---
+
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+--- Configurações Pessoais (MUITO IMPORTANTE) ---
+
+Impede que o teu login vá para a internet
+
+config.json
+user_data/
+
+--- MINECRAFT (Lógica de Limpeza) ---
+
+1. Ignora as pastas pesadas que o launcher baixa sozinho
+
+minecraft/assets/
+minecraft/versions/
+minecraft/natives/
+minecraft/runtime/
+minecraft/webcache/
+minecraft/cache/
+minecraft/logs/
+minecraft/saves/
+minecraft/resourcepacks/
+minecraft/shaderpacks/
+
+2. Ignora arquivos de opções pessoais
+
+minecraft/options.txt
+minecraft/optionsof.txt
+minecraft/usercache.json
+
+--- REGRA DE OURO DO OPTIFINE ---
+
+Ignora tudo dentro de libraries...
+
+minecraft/libraries/**
+
+...EXCETO a pasta do OptiFine! (O ! significa "Não ignorar")
+
+!minecraft/libraries/optifine/

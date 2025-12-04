@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>YugenYumi Client</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        /* --- ENGINE DE ESTILO --- */
+        :root {
+            --accent-color: #7289da;
+            --bg-painel: rgba(20, 20, 20, 0.4);
+            --border-light: rgba(255,255,255,0.05);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+        
+        body {
+            background: linear-gradient(135deg, #141E30 0%, #243B55 100%);
+            color: #e0e0e0; font-family: 'Segoe UI', sans-serif;
+            display: flex; height: 100vh; overflow: hidden; border: 1px solid #333;
+        }
+
+        /* --- LAYOUT GERAL --- */
+        .drag-region { position: absolute; top: 0; left: 0; width: 100%; height: 40px; -webkit-app-region: drag; z-index: 100; }
+        .window-controls { position: absolute; top: 0; right: 0; height: 35px; display: flex; z-index: 5000; -webkit-app-region: no-drag; }
+        .title-btn { width: 45px; height: 30px; display: flex; justify-content: center; align-items: center; cursor: pointer; color: #ccc; transition: 0.2s; }
+        .title-btn .material-icons { pointer-events: none; font-size: 16px; }
+        .title-btn:hover { background-color: rgba(255,255,255,0.1); color: white;}
+        .btn-close:hover { background-color: #e81123; }
+
+        .sidebar {
+            width: 80px; background-color: rgba(15, 15, 15, 0.4); backdrop-filter: blur(5px);
+            display: flex; flex-direction: column; align-items: center; padding-top: 50px; z-index: 10;
+            border-right: 1px solid var(--border-light);
+        }
+
+        .menu-item { width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; margin-bottom: 15px; border-radius: 12px; cursor: pointer; transition: 0.2s; color: #888; -webkit-app-region: no-drag; }
+        .menu-item:hover { background-color: rgba(255,255,255,0.1); color: white; transform: scale(1.1); }
+        .menu-item.active { background-color: var(--accent-color); color: white; box-shadow: 0 0 15px var(--accent-color); }
+        .material-icons { font-size: 28px; }
+
+        .spacer { flex: 1; }
+        .social-item { width: 35px; height: 35px; margin-top: 10px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; background: rgba(255,255,255,0.05); fill: #bbb; -webkit-app-region: no-drag; }
+        .social-item:hover { transform: scale(1.1); fill: white; background: var(--accent-color); }
+
+        .content-area { flex: 1; position: relative; -webkit-app-region: drag; }
+        .screen { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            display: none; flex-direction: column; align-items: center; 
+            padding: 40px; padding-top: 60px; -webkit-app-region: no-drag; overflow-y: auto; 
+        }
+        .screen.active { display: flex; }
+
+        /* --- HOME (3 COLUNAS) --- */
+        #home { flex-direction: row; justify-content: center; align-items: center; gap: 40px; padding-top: 0; }
+        .side-panel { width: 220px; display: flex; flex-direction: column; gap: 15px; opacity: 0; transform: translateY(20px); transition: 0.5s; pointer-events: none; }
+        .center-panel { width: 350px; display: flex; flex-direction: column; align-items: center; z-index: 5; }
+        .panel-title { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; font-weight: bold; }
+
+        /* Cards Laterais */
+        .server-card {
+            background: var(--bg-painel); border: 1px solid var(--border-light); border-radius: 12px;
+            height: 60px; display: flex; align-items: center; padding: 0 15px; gap: 15px;
+            cursor: pointer; transition: 0.2s; position: relative; overflow: hidden;
+        }
+        .server-card:hover { transform: translateX(5px); border-color: var(--accent-color); background: rgba(255,255,255,0.05); }
+        .server-icon { width: 32px; height: 32px; border-radius: 5px; background-size: cover; background-color: #333; }
+        .server-info h4 { font-size: 14px; color: white; margin: 0; }
+        .server-info span { font-size: 11px; color: #4CAF50; }
+
+        .mod-card-mini {
+            background: var(--bg-painel); border: 1px solid var(--border-light); border-radius: 12px;
+            padding: 12px 15px; display: flex; align-items: center; justify-content: space-between;
+        }
+        .mod-info-mini { display: flex; align-items: center; gap: 10px; }
+        .mod-icon-mini { color: var(--accent-color); font-size: 20px;}
+        .mod-name-mini { font-size: 13px; font-weight: bold; color: #ddd; }
+        /* Switch visual (Controlado pelo JS agora) */
+        .toggle-fake { width: 30px; height: 16px; background: #333; border-radius: 20px; position: relative; transition: 0.3s; }
+        .toggle-fake::after { content:''; position:absolute; left:2px; top:2px; width:12px; height:12px; background:white; border-radius:50%; transition: 0.3s; }
+        .toggle-fake.active { background: var(--accent-color); }
+        .toggle-fake.active::after { left: 16px; }
+
+        /* --- ELEMENTOS CENTRAIS --- */
+        h1 { font-size: 58px; font-weight: 900; margin-bottom: 5px; text-shadow: 0 5px 20px rgba(0,0,0,0.4); letter-spacing: -2px; line-height: 1; }
+        .subtitle { color: #aaa; font-size: 16px; margin-bottom: 30px; font-weight: 500; letter-spacing: 0.5px; text-rendering: optimizeLegibility; will-change: contents; }
+
+        #login-controls { width: 100%; display: flex; flex-direction: column; gap: 15px; align-items: center; }
+        .login-switch { display: flex; gap: 10px; margin-bottom: 10px; background: rgba(0,0,0,0.4); padding: 5px; border-radius: 30px; border: 1px solid var(--border-light); }
+        .switch-opt { padding: 8px 20px; border-radius: 15px; cursor: pointer; font-size: 12px; color: #888; font-weight: bold; transition: 0.3s; }
+        .switch-opt.active { background: var(--accent-color); color: white; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .input-nick { padding: 15px; width: 100%; border-radius: 10px; border: 1px solid #444; background: rgba(30,30,30,0.6); color: white; text-align: center; outline: none; }
+        .input-nick:focus { border-color: var(--accent-color); }
+        button { padding: 15px 40px; font-size: 16px; font-weight: bold; border: none; border-radius: 10px; cursor: pointer; transition: 0.2s; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-microsoft { background-color: #2b2b2b; color: white; border: 1px solid #444; width: 100%; }
+        .btn-microsoft:hover { background-color: #333; border-color: #555; }
+
+        #logged-area { display: none; flex-direction: column; align-items: center; width: 100%; }
+        #skin-container { height: 280px; margin-bottom: 20px; filter: drop-shadow(0 0 30px var(--accent-color)); transition: 0.3s; }
+        #skin-container:hover { transform: scale(1.02); }
+
+        .player-info { text-align: center; margin-bottom: 25px; }
+        .player-name { font-size: 26px; font-weight: bold; color: white; margin-bottom: 5px; }
+        .logout-link { font-size: 12px; color: #888; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; transition: 0.2s; padding: 5px 15px; border-radius: 20px; background: rgba(0,0,0,0.3); width: fit-content; margin: 0 auto; }
+        .logout-link:hover { color: #e81123; background: rgba(255,0,0,0.1); }
+
+        .version-selector {
+            width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border-light);
+            padding: 10px 15px; border-radius: 8px 8px 0 0; display: flex; align-items: center; justify-content: space-between;
+            color: #ccc; font-size: 13px; font-weight: bold; cursor: default;
+        }
+        .btn-jogar { 
+            width: 100%; padding: 18px; font-size: 20px; font-weight: 800; border-radius: 0 0 8px 8px; 
+            background: var(--accent-color); color: white; box-shadow: 0 4px 20px rgba(0,0,0,0.3); margin-top: -1px;
+        }
+        .btn-jogar:hover { filter: brightness(1.1); }
+        .home-footer { position: absolute; bottom: 20px; width: 100%; text-align: center; font-size: 11px; color: #555; pointer-events: none; }
+
+        /* --- ABA DE MODS (GERENCIADOR) --- */
+        .mods-grid { 
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; 
+            width: 100%; max-width: 800px; padding-bottom: 20px;
+        }
+        .mod-item-card {
+            background: var(--bg-painel); border: 1px solid var(--border-light); border-radius: 15px;
+            padding: 20px; display: flex; align-items: center; justify-content: space-between;
+            transition: 0.3s; cursor: default;
+        }
+        .mod-item-card:hover { border-color: var(--accent-color); background: rgba(40,40,40,0.6); }
+        .mod-details { display: flex; align-items: center; gap: 15px; }
+        .mod-icon-box { 
+            width: 50px; height: 50px; background: rgba(255,255,255,0.05); border-radius: 12px;
+            display: flex; align-items: center; justify-content: center; font-size: 24px; color: var(--accent-color);
+        }
+        .mod-texts h3 { margin: 0; font-size: 16px; color: white; }
+        .mod-texts p { margin: 3px 0 0 0; font-size: 12px; color: #888; }
+
+        /* SWITCH REAL */
+        .switch-btn {
+            width: 50px; height: 26px; background: #333; border-radius: 20px;
+            position: relative; cursor: pointer; transition: 0.3s;
+        }
+        .switch-btn::after {
+            content: ''; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px;
+            background: white; border-radius: 50%; transition: 0.3s;
+        }
+        .switch-btn.active { background: var(--accent-color); }
+        .switch-btn.active::after { left: 27px; }
+
+        /* --- OUTRAS TELAS --- */
+        .news-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; width: 100%; max-width: 800px; margin-top:20px; }
+        .news-card { 
+            height: 160px; background: var(--bg-painel); border-radius: 15px; border: 1px solid var(--border-light);
+            display: flex; flex-direction: column; justify-content: flex-end; padding: 20px; cursor: pointer; transition: 0.3s;
+            background-size: cover; position: relative; overflow: hidden;
+        }
+        .news-card::after { content:''; position:absolute; inset:0; background: linear-gradient(0deg, rgba(0,0,0,0.9), transparent); }
+        .news-card:hover { transform: translateY(-5px); border-color: var(--accent-color); }
+        .news-info { position: relative; z-index: 2; }
+        .news-tag { background: var(--accent-color); padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: bold; color: white; margin-bottom: 5px; display: inline-block;}
+        .news-title { font-size: 16px; font-weight: bold; color: white; }
+
+        .settings-container { width: 100%; max-width: 700px; background: var(--bg-painel); border-radius: 15px; padding: 30px; border: 1px solid var(--border-light); }
+        .tabs { display: flex; gap: 20px; border-bottom: 1px solid var(--border-light); margin-bottom: 20px; padding-bottom: 10px; }
+        .tab { cursor: pointer; font-weight: bold; color: #888; padding: 5px 10px; transition: 0.2s; }
+        .tab:hover { color: white; }
+        .tab.active { color: var(--accent-color); border-bottom: 2px solid var(--accent-color); }
+        .config-section { display: none; flex-direction: column; gap: 20px; }
+        .config-section.active { display: flex; }
+        .input-group { display: flex; flex-direction: column; gap: 8px; }
+        .input-label { font-size: 14px; color: #bbb; font-weight: bold; }
+        .input-field { background: rgba(0,0,0,0.3); border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; outline: none; }
+        .input-field:focus { border-color: var(--accent-color); }
+        .color-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-top:10px; }
+        .color-ball { width: 35px; height: 35px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: 0.2s; }
+        .color-ball:hover { transform: scale(1.1); box-shadow: 0 0 10px rgba(255,255,255,0.2); }
+        .bg-option { width: 100px; height: 50px; border-radius: 8px; border: 2px solid #444; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: white; text-shadow: 0 1px 3px black; }
+        .bg-option:hover { border-color: var(--accent-color); }
+        input[type=range] { width: 100%; height: 6px; background: #444; border-radius: 5px; outline: none; -webkit-appearance: none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; background: var(--accent-color); border-radius: 50%; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="drag-region"></div>
+    <div class="window-controls">
+        <div class="title-btn" onclick="winControl('minimize')"><span class="material-icons">remove</span></div>
+        <div class="title-btn" onclick="winControl('maximize')"><span class="material-icons">crop_square</span></div>
+        <div class="title-btn btn-close" onclick="winControl('close')"><span class="material-icons">close</span></div>
+    </div>
+
+    <div class="sidebar">
+        <div class="menu-item active" onclick="mudarTela('home', this)" title="Início"><span class="material-icons">home</span></div>
+        <div class="menu-item" onclick="mudarTela('mods', this)" title="Módulos & PvP"><span class="material-icons">extension</span></div>
+        <div class="menu-item" onclick="mudarTela('news', this)" title="Notícias"><span class="material-icons">newspaper</span></div>
+        <div class="menu-item" onclick="mudarTela('settings', this)" title="Configurações"><span class="material-icons">settings</span></div>
+        <div class="spacer" style="flex:1"></div>
+        <div class="social-item" onclick="abrirLink('https://discord.gg')" title="Discord"><svg width="20" height="20" viewBox="0 0 24 24" fill="#bbb"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg></div>
+    </div>
+
+    <div class="content-area">
+        
+        <div id="home" class="screen active">
+            <div id="side-left" class="side-panel">
+                <div class="panel-title">Acesso Rápido</div>
+                
+                <div class="server-card" onclick="jogar('mc.mush.com.br')" title="Entrar no MushMC"><div class="server-icon" style="background-image: url('https://yt3.googleusercontent.com/ytc/AIdro_kX4_7t3K3_Qy6_y6_y6_y6_y6_y6_y6_y6=s900-c-k-c0x00ffffff-no-rj');"></div><div class="server-info"><h4>MushMC</h4><span>Online</span></div></div>
+                <div class="server-card" onclick="jogar('mc.hypixel.net')" title="Entrar no Hypixel"><div class="server-icon" style="background-image: url('https://pbs.twimg.com/profile_images/1352292376979218434/I6J-y3-Z_400x400.jpg');"></div><div class="server-info"><h4>Hypixel</h4><span>Online</span></div></div>
+                <div class="server-card" onclick="jogar('redesky.com')" title="Entrar na Rede Sky"><div class="server-icon" style="background-image: url('https://yt3.googleusercontent.com/ytc/AIdro_kX4_7t3K3_Qy6_y6_y6_y6_y6_y6_y6_y6=s900-c-k-c0x00ffffff-no-rj');"></div><div class="server-info"><h4>Rede Sky</h4><span>Online</span></div></div>
+            </div>
+
+            <div class="center-panel">
+                <h1>YugenYumi</h1>
+                <p class="subtitle" id="status-texto">Pronto para jogar</p>
+
+                <div id="login-controls">
+                    <div class="login-switch">
+                        <div id="sw-orig" class="switch-opt active" onclick="switchMode('original')">Original</div>
+                        <div id="sw-off" class="switch-opt" onclick="switchMode('offline')">Pirata</div>
+                    </div>
+                    <div id="area-original" style="width:100%"><button class="btn-microsoft" onclick="ipcRenderer.send('fazer-login')"><span class="material-icons">login</span> Entrar com Microsoft</button></div>
+                    <div id="area-offline" style="width:100%; display:none; gap:10px; flex-direction:column;"><input type="text" id="nick-input" class="input-nick" placeholder="Nickname"><button class="btn-jogar" style="font-size:16px; padding:10px; border-radius:10px;" onclick="entrarOffline()">Entrar</button></div>
+                </div>
+
+                <div id="logged-area">
+                    <div id="skin-container"><img id="head-img" src="" style="height:100%;"></div>
+                    <div class="player-info">
+                        <div class="player-name" id="user-name">Player</div>
+                        <div class="logout-link" onclick="fazerLogout()"><span class="material-icons" style="font-size:14px">logout</span> Trocar Conta</div>
+                    </div>
+                    <div style="width:100%">
+                        <div class="version-selector">
+                            <div style="display:flex; align-items:center; gap:5px"><span class="material-icons" style="font-size:16px; color:var(--accent-color)">layers</span> 1.8.9 - PvP Optimized</div>
+                            <span class="material-icons" style="font-size:16px">arrow_drop_down</span>
+                        </div>
+                        <button class="btn-jogar" onclick="jogar()">JOGAR</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="side-right" class="side-panel">
+                <div class="panel-title">Mods Ativos</div>
+                <div class="mod-card-mini"><div class="mod-info-mini"><span class="material-icons mod-icon-mini">bolt</span><span class="mod-name-mini">FPS Boost</span></div><div id="mini-fps" class="toggle-fake"></div></div>
+                <div class="mod-card-mini"><div class="mod-info-mini"><span class="material-icons mod-icon-mini">directions_run</span><span class="mod-name-mini">Sprint</span></div><div id="mini-sprint" class="toggle-fake"></div></div>
+                <div class="mod-card-mini"><div class="mod-info-mini"><span class="material-icons mod-icon-mini">brightness_7</span><span class="mod-name-mini">Fullbright</span></div><div id="mini-fullbright" class="toggle-fake"></div></div>
+                <div class="mod-card-mini"><div class="mod-info-mini"><span class="material-icons mod-icon-mini">mouse</span><span class="mod-name-mini">Keystrokes</span></div><div id="mini-keystrokes" class="toggle-fake"></div></div>
+            </div>
+
+            <div class="home-footer">Client v1.0.0 • Mojang: <span style="color:#4CAF50">Online</span></div>
+        </div>
+
+        <div id="mods" class="screen">
+            <h2 style="font-size:32px; font-weight:800; margin-bottom:10px;">Gerenciar Módulos</h2>
+            <p style="color:#888; margin-bottom:30px;">Ative ou desative funcionalidades globais do client.</p>
+            
+            <div class="mods-grid">
+                <div class="mod-item-card"><div class="mod-details"><div class="mod-icon-box"><span class="material-icons">bolt</span></div><div class="mod-texts"><h3>FPS Boost</h3><p>Otimização</p></div></div><div id="btn-fps" class="switch-btn" onclick="toggleMod('fps')"></div></div>
+                <div class="mod-item-card"><div class="mod-details"><div class="mod-icon-box"><span class="material-icons">directions_run</span></div><div class="mod-texts"><h3>Toggle Sprint</h3><p>Corrida auto</p></div></div><div id="btn-sprint" class="switch-btn" onclick="toggleMod('sprint')"></div></div>
+                <div class="mod-item-card"><div class="mod-details"><div class="mod-icon-box"><span class="material-icons">mouse</span></div><div class="mod-texts"><h3>Keystrokes</h3><p>Teclas na tela</p></div></div><div id="btn-keystrokes" class="switch-btn" onclick="toggleMod('keystrokes')"></div></div>
+                <div class="mod-item-card"><div class="mod-details"><div class="mod-icon-box"><span class="material-icons">brightness_7</span></div><div class="mod-texts"><h3>Fullbright</h3><p>Visão noturna</p></div></div><div id="btn-fullbright" class="switch-btn" onclick="toggleMod('fullbright')"></div></div>
+                <div class="mod-item-card"><div class="mod-details"><div class="mod-icon-box"><span class="material-icons">shield</span></div><div class="mod-texts"><h3>Armor Status</h3><p>Durabilidade</p></div></div><div id="btn-armor" class="switch-btn" onclick="toggleMod('armor')"></div></div>
+                <div class="mod-item-card"><div class="mod-details"><div class="mod-icon-box"><span class="material-icons">science</span></div><div class="mod-texts"><h3>Potion Status</h3><p>Efeitos ativos</p></div></div><div id="btn-potions" class="switch-btn" onclick="toggleMod('potions')"></div></div>
+                <div class="mod-item-card"><div class="mod-details"><div class="mod-icon-box"><span class="material-icons">blur_on</span></div><div class="mod-texts"><h3>Motion Blur</h3><p>Efeito visual</p></div></div><div id="btn-motionblur" class="switch-btn" onclick="toggleMod('motionblur')"></div></div>
+                <div class="mod-item-card"><div class="mod-details"><div class="mod-icon-box"><span class="material-icons">timer</span></div><div class="mod-texts"><h3>TNT Timer</h3><p>Tempo explosão</p></div></div><div id="btn-tnttimer" class="switch-btn" onclick="toggleMod('tnttimer')"></div></div>
+            </div>
+        </div>
+
+        <div id="news" class="screen">
+            <h2 style="font-size:32px; font-weight:800; margin-bottom:20px;">Novidades</h2>
+            <div class="news-grid">
+                <div class="news-card" style="background-image: url('https://i.imgur.com/8Q5k5Jp.jpeg');"><div class="news-info"><div class="news-tag">UPDATE</div><div class="news-title">Versão 1.0 Lançada</div></div></div>
+                <div class="news-card" style="background-image: url('https://i.imgur.com/w1j3v5g.jpeg');"><div class="news-info"><div class="news-tag" style="background:#5865F2">DISCORD</div><div class="news-title">Entre na Comunidade</div></div></div>
+            </div>
+        </div>
+
+        <div id="settings" class="screen">
+            <h2 style="margin-bottom: 20px;">Configurações</h2>
+            <div class="settings-container">
+                <div class="tabs">
+                    <div class="tab active" onclick="mudarAbaConfig('geral', this)">Geral</div>
+                    <div class="tab" onclick="mudarAbaConfig('java', this)">Java</div>
+                    <div class="tab" onclick="mudarAbaConfig('tema', this)">Temas</div>
+                </div>
+
+                <div id="conf-geral" class="config-section active">
+                    <div class="input-group">
+                        <label class="input-label">Resolução do Jogo</label>
+                        <div style="display:flex; gap:10px;">
+                            <input type="number" id="res-w" class="input-field" placeholder="W" onchange="salvarConfigGeral()">
+                            <input type="number" id="res-h" class="input-field" placeholder="H" onchange="salvarConfigGeral()">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="conf-java" class="config-section">
+                    <div class="input-group">
+                        <label class="input-label">Memória RAM: <span id="ram-text" style="color:var(--accent-color)">4 GB</span></label>
+                        <input type="range" id="ram-slider" min="1" max="8" step="1" oninput="atualizarRam(this.value)">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Argumentos JVM</label>
+                        <input type="text" id="jvm-args" class="input-field" placeholder="-Xmx4G..." onchange="salvarConfigGeral()">
+                    </div>
+                </div>
+
+                <div id="conf-tema" class="config-section">
+                    <div class="theme-section">
+                        <span class="input-label" style="display:block; margin-bottom:10px;">Cor de Destaque</span>
+                        <div class="color-grid">
+                            <div class="color-ball" style="background:#7289da" onclick="mudarCor('#7289da')"></div>
+                            <div class="color-ball" style="background:#e81123" onclick="mudarCor('#e81123')"></div>
+                            <div class="color-ball" style="background:#4CAF50" onclick="mudarCor('#4CAF50')"></div>
+                            <div class="color-ball" style="background:#9b59b6" onclick="mudarCor('#9b59b6')"></div>
+                            <div class="color-ball" style="background:#f1c40f" onclick="mudarCor('#f1c40f')"></div>
+                            <div class="color-ball" style="background:#00d2d3" onclick="mudarCor('#00d2d3')"></div>
+                        </div>
+                    </div>
+                    <div class="theme-section">
+                        <span class="input-label" style="display:block; margin-bottom:10px;">Plano de Fundo</span>
+                        <div class="color-grid">
+                            <div class="bg-option" style="background: linear-gradient(135deg, #141E30, #243B55)" onclick="mudarFundo('padrao')">Padrão</div>
+                            <div class="bg-option" style="background: linear-gradient(135deg, #2b1055, #7597de)" onclick="mudarFundo('yugen')">Roxo</div>
+                            <div class="bg-option" style="background: #111" onclick="mudarFundo('dark')">Preto</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer, shell } = require('electron');
+        let tokenFinal = null;
+        let configAtual = {};
+        let jogoRodando = false;
+
+        function winControl(a) { ipcRenderer.send('app-'+a); }
+        function abrirLink(url) { shell.openExternal(url); }
+        function mudarTela(id, btn) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.menu-item').forEach(b => b.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            btn.classList.add('active');
+        }
+        function mudarAbaConfig(id, btn) {
+            document.querySelectorAll('.config-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+            document.getElementById('conf-'+id).classList.add('active');
+            btn.classList.add('active');
+        }
+
+        function toggleMod(modId) {
+            const novoEstado = !configAtual.mods[modId];
+            configAtual.mods[modId] = novoEstado;
+            atualizarVisualMod(modId, novoEstado);
+            ipcRenderer.send('toggle-mod', { modId, estado: novoEstado });
+        }
+
+        function atualizarVisualMod(modId, ativo) {
+            const btn = document.getElementById('btn-' + modId);
+            if(btn) { if(ativo) btn.classList.add('active'); else btn.classList.remove('active'); }
+            const mini = document.getElementById('mini-' + modId);
+            if(mini) { if(ativo) mini.classList.add('active'); else mini.classList.remove('active'); }
+        }
+
+        function carregarModsVisuais() {
+            if(!configAtual.mods) return;
+            for (const [mod, ativo] of Object.entries(configAtual.mods)) {
+                atualizarVisualMod(mod, ativo);
+            }
+        }
+
+        function mudarCor(cor) { document.documentElement.style.setProperty('--accent-color', cor); configAtual.temaCor = cor; salvarConfigGeral(); }
+        function mudarFundo(tipo) {
+            let bg = "";
+            if(tipo === 'padrao') bg = "linear-gradient(135deg, #141E30 0%, #243B55 100%)";
+            else if(tipo === 'yugen') bg = "linear-gradient(135deg, #2b1055 0%, #7597de 100%)";
+            else if(tipo === 'dark') bg = "#050505";
+            document.body.style.background = bg;
+            configAtual.temaFundo = tipo;
+            salvarConfigGeral();
+        }
+        function salvarConfigGeral() {
+            configAtual.width = document.getElementById('res-w').value;
+            configAtual.height = document.getElementById('res-h').value;
+            configAtual.jvmArgs = document.getElementById('jvm-args').value;
+            ipcRenderer.send('salvar-config-geral', configAtual);
+        }
+
+        function switchMode(mode) {
+            document.querySelectorAll('.switch-opt').forEach(s => s.classList.remove('active'));
+            if(mode === 'original') {
+                document.getElementById('sw-orig').classList.add('active');
+                document.getElementById('area-original').style.display='block';
+                document.getElementById('area-offline').style.display='none';
+            } else {
+                document.getElementById('sw-off').classList.add('active');
+                document.getElementById('area-original').style.display='none';
+                document.getElementById('area-offline').style.display='flex';
+            }
+        }
+        function entrarOffline() {
+            const nick = document.getElementById('nick-input').value;
+            if(nick.length < 3) return;
+            processarLogin({ nome: nick, uuid: '00000000000000000000000000000000', token: { access_token:'123', client_token:'123', uuid:'123', name:nick, user_properties:'{}' } });
+        }
+        function fazerLogout() {
+            if(jogoRodando) return alert("Feche o jogo antes de sair!");
+            ipcRenderer.send('fazer-logout');
+            document.getElementById('login-controls').style.display = 'flex';
+            document.getElementById('logged-area').style.display = 'none';
+            document.getElementById('side-left').style.opacity = '0';
+            document.getElementById('side-right').style.opacity = '0';
+            document.getElementById('side-left').style.transform = 'translateY(20px)';
+            document.getElementById('side-right').style.transform = 'translateY(20px)';
+            document.getElementById('side-left').style.pointerEvents = 'none';
+            document.getElementById('side-right').style.pointerEvents = 'none';
+            document.getElementById('status-texto').innerText = "Bem-vindo de volta";
+            document.getElementById('head-img').src = "";
+        }
+        function processarLogin(dados) {
+            tokenFinal = dados.token;
+            document.getElementById('user-name').innerText = dados.nome;
+            const url = dados.uuid.startsWith('0000') ? `https://minotar.net/armor/body/${dados.nome}/150.png` : `https://visage.surgeplay.com/full/512/${dados.uuid}`;
+            document.getElementById('head-img').src = url;
+            document.getElementById('login-controls').style.display = 'none';
+            document.getElementById('logged-area').style.display = 'flex';
+            document.getElementById('side-left').style.opacity = '1';
+            document.getElementById('side-right').style.opacity = '1';
+            document.getElementById('side-left').style.transform = 'translateY(0)';
+            document.getElementById('side-right').style.transform = 'translateY(0)';
+            document.getElementById('side-left').style.pointerEvents = 'all';
+            document.getElementById('side-right').style.pointerEvents = 'all';
+            document.getElementById('status-texto').innerText = "Pronto para jogar";
+        }
+
+        ipcRenderer.on('login-sucesso', (e, d) => processarLogin(d));
+        ipcRenderer.on('status-atualizacao', (e, m) => {
+            const el = document.getElementById('status-texto');
+            el.innerText = m; el.style.color = getComputedStyle(document.documentElement).getPropertyValue('--accent-color');
+        });
+        ipcRenderer.on('jogo-fechou', () => {
+            jogoRodando = false;
+            document.getElementById('status-texto').innerText = "Pronto para jogar";
+            document.getElementById('status-texto').style.color = "#aaa";
+            const btn = document.querySelector('.btn-jogar');
+            btn.style.opacity = "1";
+            btn.style.cursor = "pointer";
+            btn.innerText = "JOGAR";
+        });
+
+        function atualizarRam(val) {
+            document.getElementById('ram-text').innerText = val + " GB";
+            configAtual.ram = val;
+            ipcRenderer.send('salvar-ram', val);
+        }
+
+        // --- ATUALIZADA: FUNÇÃO JOGAR ACEITANDO IP ---
+        function jogar(ipServidor = null) {
+            if(!tokenFinal) return alert("Você precisa logar primeiro!");
+            if(jogoRodando) return;
+            
+            jogoRodando = true;
+            
+            if (ipServidor) {
+                document.getElementById('status-texto').innerText = "Conectando ao servidor...";
+            } else {
+                document.getElementById('status-texto').innerText = "Iniciando...";
+            }
+            
+            const btn = document.querySelector('.btn-jogar');
+            btn.style.opacity = "0.5";
+            btn.style.cursor = "not-allowed";
+            btn.innerText = "RODANDO...";
+
+            ipcRenderer.send('iniciar-minecraft', { 
+                token: tokenFinal, 
+                ram: configAtual.ram,
+                server: ipServidor // Manda o IP para o backend
+            });
+        }
+
+        window.onload = async () => {
+            configAtual = await ipcRenderer.invoke('obter-config');
+            carregarModsVisuais();
+            if(configAtual.ram) {
+                document.getElementById('ram-slider').value = configAtual.ram;
+                document.getElementById('ram-text').innerText = configAtual.ram + " GB";
+            }
+            if(configAtual.width) document.getElementById('res-w').value = configAtual.width;
+            if(configAtual.height) document.getElementById('res-h').value = configAtual.height;
+            if(configAtual.jvmArgs) document.getElementById('jvm-args').value = configAtual.jvmArgs;
+            if(configAtual.temaCor) mudarCor(configAtual.temaCor);
+            if(configAtual.temaFundo) mudarFundo(configAtual.temaFundo);
+
+            const login = await ipcRenderer.invoke('tentar-auto-login');
+            if(login && login.sucesso) processarLogin(login);
+        };
+    </script>
+</body>
+</html>
