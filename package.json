@@ -25,11 +25,9 @@
     "productName": "YugenYumi Client",
     "files": [
       "**/*",
-      "minecraft/**/*",
-      "index.html",
-      "index.js",
-      "config.json",
-      "icon.png"
+      "!config.json",
+      "!minecraft",
+      "minecraft/libraries/**/*"
     ],
     "win": {
       "target": "nsis",
@@ -38,7 +36,8 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
+      "createDesktopShortcut": true,
+      "runAfterFinish": true
     }
   }
 }
